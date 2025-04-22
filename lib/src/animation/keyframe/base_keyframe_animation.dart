@@ -1,21 +1,18 @@
 import 'package:flutter/foundation.dart';
+
 import '../../l.dart';
 import '../../value/keyframe.dart';
 import '../../value/lottie_value_callback.dart';
 
-/// @param K Keyframe type
-/// @param A Animation type
 abstract class BaseKeyframeAnimation<K extends Object, A extends Object?> {
-// This is not a Set because we don't want to create an iterator object on every setProgress.
-  final listeners = <void Function()>[];
-  bool _isDiscrete = false;
-
+  final Set<VoidCallback> _listeners = {};
   final _KeyframesWrapper<K> _keyframesWrapper;
+
   double _progress = 0;
+  bool _isDiscrete = false;
   LottieValueCallback<A>? valueCallback;
 
   A? _cachedGetValue;
-
   double _cachedStartDelayProgress = -1.0;
   double _cachedEndProgress = -1.0;
 
@@ -26,23 +23,27 @@ abstract class BaseKeyframeAnimation<K extends Object, A extends Object?> {
     _isDiscrete = true;
   }
 
-  void addUpdateListener(void Function() listener) {
-    listeners.add(listener);
+  void addUpdateListener(VoidCallback listener) {
+    _listeners.add(listener);
+  }
+
+  void removeUpdateListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  void dispose() {
+    _listeners.clear();
+    valueCallback?.setAnimation(null);
+    valueCallback = null;
+    _cachedGetValue = null;
   }
 
   void setProgress(double progress) {
-    if (_keyframesWrapper.isEmpty) {
-      return;
-    }
-    if (progress < getStartDelayProgress()) {
-      progress = getStartDelayProgress();
-    } else if (progress > getEndProgress()) {
-      progress = getEndProgress();
-    }
+    if (_keyframesWrapper.isEmpty) return;
 
-    if (progress == _progress) {
-      return;
-    }
+    progress = progress.clamp(getStartDelayProgress(), getEndProgress());
+    if (progress == _progress) return;
+
     _progress = progress;
     if (_keyframesWrapper.isValueChanged(progress)) {
       notifyListeners();
@@ -50,7 +51,7 @@ abstract class BaseKeyframeAnimation<K extends Object, A extends Object?> {
   }
 
   void notifyListeners() {
-    for (var listener in listeners) {
+    for (var listener in _listeners) {
       listener();
     }
   }
@@ -62,106 +63,84 @@ abstract class BaseKeyframeAnimation<K extends Object, A extends Object?> {
     return keyframe;
   }
 
-  /// Returns the progress into the current keyframe between 0 and 1. This does not take into account
-  /// any interpolation that the keyframe may have.
   double getLinearCurrentKeyframeProgress() {
-    if (_isDiscrete) {
-      return 0.0;
-    }
+    if (_isDiscrete) return 0.0;
 
-    var keyframe = getCurrentKeyframe();
-    if (keyframe.isStatic) {
-      return 0.0;
-    }
-    var progressIntoFrame = _progress - keyframe.startProgress;
-    var keyframeProgress = keyframe.endProgress - keyframe.startProgress;
+    final keyframe = getCurrentKeyframe();
+    if (keyframe.isStatic) return 0.0;
+
+    final progressIntoFrame = _progress - keyframe.startProgress;
+    final keyframeProgress = keyframe.endProgress - keyframe.startProgress;
     return (progressIntoFrame / keyframeProgress).clamp(0, 1);
   }
 
-  /// Takes the value of {@link #getLinearCurrentKeyframeProgress()} and interpolates it with
-  /// the current keyframe's interpolator.
   double getInterpolatedCurrentKeyframeProgress() {
-    var keyframe = getCurrentKeyframe();
-    if (keyframe.isStatic || keyframe.interpolator == null) {
-      return 0.0;
-    }
+    final keyframe = getCurrentKeyframe();
+    if (keyframe.isStatic || keyframe.interpolator == null) return 0.0;
     return keyframe.interpolator!.transform(getLinearCurrentKeyframeProgress());
   }
 
   double getStartDelayProgress() {
-    if (_cachedStartDelayProgress == -1) {
-      _cachedStartDelayProgress = _keyframesWrapper.getStartDelayProgress();
-    }
-    return _cachedStartDelayProgress;
+    return _cachedStartDelayProgress != -1.0
+        ? _cachedStartDelayProgress
+        : (_cachedStartDelayProgress =
+            _keyframesWrapper.getStartDelayProgress());
   }
 
   double getEndProgress() {
-    if (_cachedEndProgress == -1) {
-      _cachedEndProgress = _keyframesWrapper.getEndProgress();
-    }
-    return _cachedEndProgress;
+    return _cachedEndProgress != -1.0
+        ? _cachedEndProgress
+        : (_cachedEndProgress = _keyframesWrapper.getEndProgress());
   }
 
   A get value {
-    A value;
-
-    var linearProgress = getLinearCurrentKeyframeProgress();
+    final linearProgress = getLinearCurrentKeyframeProgress();
     if (valueCallback == null &&
         _keyframesWrapper.isCachedValueEnabled(linearProgress)) {
       return _cachedGetValue!;
     }
 
     final keyframe = getCurrentKeyframe();
+    A newValue;
     if (keyframe.xInterpolator != null && keyframe.yInterpolator != null) {
-      var xProgress = keyframe.xInterpolator!.transform(linearProgress);
-      var yProgress = keyframe.yInterpolator!.transform(linearProgress);
-      value = getValueSplitDimension(
+      final xProgress = keyframe.xInterpolator!.transform(linearProgress);
+      final yProgress = keyframe.yInterpolator!.transform(linearProgress);
+      newValue = getValueSplitDimension(
           keyframe, linearProgress, xProgress, yProgress);
     } else {
-      var progress = getInterpolatedCurrentKeyframeProgress();
-      value = getValue(keyframe, progress);
+      final progress = getInterpolatedCurrentKeyframeProgress();
+      newValue = getValue(keyframe, progress);
     }
 
-    _cachedGetValue = value;
-
-    return value;
+    _cachedGetValue = newValue;
+    return newValue;
   }
 
-  double get progress {
-    return _progress;
-  }
+  double get progress => _progress;
 
   @protected
-  set progress(double value) {
-    _progress = value;
+  set progress(double value) => _progress = value;
+
+  void setValueCallback(LottieValueCallback<A>? callback) {
+    valueCallback?.setAnimation(null);
+    valueCallback = callback;
+    callback?.setAnimation(this);
   }
 
-  void setValueCallback(LottieValueCallback<A>? valueCallback) {
-    if (this.valueCallback != null) {
-      this.valueCallback!.setAnimation(null);
-    }
-    this.valueCallback = valueCallback;
-    if (valueCallback != null) {
-      valueCallback.setAnimation(this);
-    }
-  }
-
-  /// keyframeProgress will be [0, 1] unless the interpolator has overshoot in which case, this
-  /// should be able to handle values outside of that range.
   A getValue(Keyframe<K> keyframe, double keyframeProgress);
 
-  A getValueSplitDimension(Keyframe<K> keyframe, double linearKeyframeProgress,
-      double xKeyframeProgress, double yKeyframeProgress) {
+  A getValueSplitDimension(
+    Keyframe<K> keyframe,
+    double linearKeyframeProgress,
+    double xKeyframeProgress,
+    double yKeyframeProgress,
+  ) {
     throw Exception('This animation does not support split dimensions!');
   }
 
   static _KeyframesWrapper<T> _wrap<T>(List<Keyframe<T>> keyframes) {
-    if (keyframes.isEmpty) {
-      return _EmptyKeyframeWrapper();
-    }
-    if (keyframes.length == 1) {
-      return _SingleKeyframeWrapper(keyframes);
-    }
+    if (keyframes.isEmpty) return _EmptyKeyframeWrapper();
+    if (keyframes.length == 1) return _SingleKeyframeWrapper(keyframes);
     return _KeyframesWrapperImpl(keyframes);
   }
 }
