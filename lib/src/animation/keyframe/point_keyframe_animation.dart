@@ -7,6 +7,12 @@ class PointKeyframeAnimation extends KeyframeAnimation<Offset> {
   PointKeyframeAnimation(super.keyframes);
 
   @override
+  void dispose() {
+    valueCallback = null; // Clear the callback to prevent memory leaks
+    super.dispose();
+  }
+
+  @override
   Offset getValue(Keyframe<Offset> keyframe, double keyframeProgress) {
     return getValueSplitDimension(
         keyframe, keyframeProgress, keyframeProgress, keyframeProgress);

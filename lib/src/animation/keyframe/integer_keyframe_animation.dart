@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import '../../value/keyframe.dart';
 import 'keyframe_animation.dart';
 
@@ -28,5 +29,11 @@ class IntegerKeyframeAnimation extends KeyframeAnimation<int> {
     }
 
     return lerpDouble(keyframe.startValue, endValue, keyframeProgress)!.round();
+  }
+
+  @override
+  void dispose() {
+    setValueCallback(null); // Prevent memory leak
+    super.dispose();
   }
 }

@@ -30,6 +30,12 @@ class TextKeyframeAnimation extends KeyframeAnimation<DocumentData> {
   void setStringValueCallback(LottieValueCallback<String> valueCallback) {
     super.setValueCallback(_DocumentDataValueCallback(valueCallback));
   }
+
+  @override
+  void dispose() {
+    setValueCallback(null); // Prevent memory leak
+    super.dispose();
+  }
 }
 
 class _DocumentDataValueCallback extends LottieValueCallback<DocumentData> {

@@ -36,6 +36,7 @@ abstract class BaseKeyframeAnimation<K extends Object, A extends Object?> {
     valueCallback?.setAnimation(null);
     valueCallback = null;
     _cachedGetValue = null;
+    _keyframesWrapper.dispose();
   }
 
   void setProgress(double progress) {
@@ -157,18 +158,16 @@ abstract class _KeyframesWrapper<T> {
   double getEndProgress();
 
   bool isCachedValueEnabled(double progress);
+
+  void dispose();
 }
 
 class _EmptyKeyframeWrapper<T> implements _KeyframesWrapper<T> {
   @override
-  bool get isEmpty {
-    return true;
-  }
+  bool get isEmpty => true;
 
   @override
-  bool isValueChanged(double progress) {
-    return false;
-  }
+  bool isValueChanged(double progress) => false;
 
   @override
   Keyframe<T> getCurrentKeyframe() {
@@ -176,52 +175,41 @@ class _EmptyKeyframeWrapper<T> implements _KeyframesWrapper<T> {
   }
 
   @override
-  double getStartDelayProgress() {
-    return 0;
-  }
+  double getStartDelayProgress() => 0;
 
   @override
-  double getEndProgress() {
-    return 1;
-  }
+  double getEndProgress() => 1;
 
   @override
   bool isCachedValueEnabled(double progress) {
     throw StateError('not implemented');
   }
+
+  @override
+  void dispose() {}
 }
 
 class _SingleKeyframeWrapper<T> implements _KeyframesWrapper<T> {
-  final Keyframe<T> keyframe;
+  Keyframe<T>? keyframe;
   double _cachedInterpolatedProgress = -1;
 
   _SingleKeyframeWrapper(List<Keyframe<T>> keyframes)
       : keyframe = keyframes.first;
 
   @override
-  bool get isEmpty {
-    return false;
-  }
+  bool get isEmpty => false;
 
   @override
-  bool isValueChanged(double progress) {
-    return !keyframe.isStatic;
-  }
+  bool isValueChanged(double progress) => !keyframe!.isStatic;
 
   @override
-  Keyframe<T> getCurrentKeyframe() {
-    return keyframe;
-  }
+  Keyframe<T> getCurrentKeyframe() => keyframe!;
 
   @override
-  double getStartDelayProgress() {
-    return keyframe.startProgress;
-  }
+  double getStartDelayProgress() => keyframe!.startProgress;
 
   @override
-  double getEndProgress() {
-    return keyframe.endProgress;
-  }
+  double getEndProgress() => keyframe!.endProgress;
 
   @override
   bool isCachedValueEnabled(double progress) {
@@ -230,6 +218,11 @@ class _SingleKeyframeWrapper<T> implements _KeyframesWrapper<T> {
     }
     _cachedInterpolatedProgress = progress;
     return false;
+  }
+
+  @override
+  void dispose() {
+    keyframe = null;
   }
 }
 
@@ -244,9 +237,7 @@ class _KeyframesWrapperImpl<T> implements _KeyframesWrapper<T> {
   }
 
   @override
-  bool get isEmpty {
-    return false;
-  }
+  bool get isEmpty => false;
 
   @override
   bool isValueChanged(double progress) {
@@ -275,19 +266,13 @@ class _KeyframesWrapperImpl<T> implements _KeyframesWrapper<T> {
   }
 
   @override
-  Keyframe<T> getCurrentKeyframe() {
-    return _currentKeyframe!;
-  }
+  Keyframe<T> getCurrentKeyframe() => _currentKeyframe!;
 
   @override
-  double getStartDelayProgress() {
-    return keyframes.first.startProgress;
-  }
+  double getStartDelayProgress() => keyframes.first.startProgress;
 
   @override
-  double getEndProgress() {
-    return keyframes.last.endProgress;
-  }
+  double getEndProgress() => keyframes.last.endProgress;
 
   @override
   bool isCachedValueEnabled(double progress) {
@@ -298,5 +283,12 @@ class _KeyframesWrapperImpl<T> implements _KeyframesWrapper<T> {
     _cachedCurrentKeyframe = _currentKeyframe;
     _cachedInterpolatedProgress = progress;
     return false;
+  }
+
+  @override
+  void dispose() {
+    keyframes.clear();
+    _currentKeyframe = null;
+    _cachedCurrentKeyframe = null;
   }
 }

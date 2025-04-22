@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
+
 import '../../model/content/gradient_color.dart';
 import '../../value/keyframe.dart';
 import 'keyframe_animation.dart';
@@ -30,5 +31,11 @@ class GradientColorKeyframeAnimation extends KeyframeAnimation<GradientColor> {
     _gradientColor.lerp(
         keyframe.startValue!, keyframe.endValue!, keyframeProgress);
     return _gradientColor;
+  }
+
+  @override
+  void dispose() {
+    setValueCallback(null); // Prevent memory leak
+    super.dispose();
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import '../../value/keyframe.dart';
 import 'keyframe_animation.dart';
 import 'path_keyframe.dart';
@@ -53,5 +54,11 @@ class PathKeyframeAnimation extends KeyframeAnimation<Offset> {
           .getTangentForOffset(keyframeProgress * length)!
           .position;
     }
+  }
+
+  @override
+  void dispose() {
+    setValueCallback(null); // Prevent memory leak
+    super.dispose();
   }
 }

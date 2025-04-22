@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import '../../utils/gamma_evaluator.dart';
 import '../../value/keyframe.dart';
 import 'keyframe_animation.dart';
@@ -30,5 +31,11 @@ class ColorKeyframeAnimation extends KeyframeAnimation<Color> {
 
     return GammaEvaluator.evaluate(
         keyframeProgress.clamp(0, 1).toDouble(), startColor!, endColor!);
+  }
+
+  @override
+  void dispose() {
+    setValueCallback(null); // Prevent memory leak
+    super.dispose();
   }
 }
