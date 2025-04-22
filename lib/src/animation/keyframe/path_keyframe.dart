@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import '../../composition.dart';
 import '../../utils/utils.dart';
 import '../../value/keyframe.dart';
@@ -6,6 +7,11 @@ import '../../value/keyframe.dart';
 class PathKeyframe extends Keyframe<Offset> {
   Path? _path;
   final Keyframe<Offset> _pointKeyFrame;
+
+  /// Dispose of resources to prevent memory leaks.
+  void dispose() {
+    _path = null;
+  }
 
   PathKeyframe(LottieComposition super.composition, Keyframe<Offset> keyframe)
       : _pointKeyFrame = keyframe,
